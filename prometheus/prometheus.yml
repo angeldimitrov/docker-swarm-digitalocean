@@ -1,0 +1,23 @@
+### prometheus.yml ###
+
+global:
+  scrape_interval: 15s # By default, scrape targets every 15 seconds.
+  evaluation_interval: 15s # By default, scrape targets every 15 seconds.
+  # scrape_timeout is set to the global default (10s).
+
+  # Attach these extra labels to all time-series collected by this Prometheus instance.
+  external_labels:
+    monitor: 'swarm-monitor'
+
+#rule_files:
+#  - '/etc/prometheus/alert.rules'
+
+# A scrape configuration containing exactly one endpoint to scrape:
+scrape_configs:
+- job_name: 'dns-service-discovery'
+
+  dns_sd_configs:
+  - names:
+    - 'monitoring.service.dc1.consul'
+    type: 'A'
+    port: 8080
