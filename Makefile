@@ -127,7 +127,7 @@ create-overlay-network-monitoring: init-swarm-master-vars
 	@printf "\e[33m*** \e create  $(monitoring_overlay_network_name) overlay network \e[33m***\e[0m\n"
 	docker $(swarm_master_config) network create -d overlay $(monitoring_overlay_network_name)
 
-install-monitoring: init-nodes-vars init-swarm-master-vars create-overlay-network-monitoring
+install-monitoring: init-nodes-vars init-swarm-master-vars create-overlay-network-monitoring install-prometheus
 	@for node_name in $(smarm_nodes) $(swarm_master_name); do \
 		printf "\e[33m*** \e  installing cadvisor @ $$node_name ... \e[33m***\e[0m\n"; \
 		docker $(swarm_master_config) run -d \
@@ -143,6 +143,53 @@ install-monitoring: init-nodes-vars init-swarm-master-vars create-overlay-networ
 			-e constraint:node_name==$$node_name \
 			google/cadvisor:latest; \
 	done
+
+install-registrator: init-vars init-nodes-vars init-swarm-master-vars
+	@for node_name in $(smarm_nodes) $(swarm_master_name); do \
+		printf "\e[33m*** \e installing registrator @ $$node_name ... \e[33m***\e[0m\n"; \
+		docker $(swarm_master_config) run -d \
+			-v /var/run/docker.sock:/tmp/docker.sock \
+			--restart=always \
+			--name registrator-$$node_name \
+			--net=host \
+			-e constraint:node_name==$$node_name \
+			sourcestream/registrator -internal consul://$(infra_node_ip_private):8500; \
+	done
+
+install-prometheus: init-vars init-swarm-master-vars
+	@printf "\e[33m*** \e installing prometheus @ $(swarm_master_name) ... \e[33m***\e[0m\n"; \
+	docker $(swarm_master_config) run -d \
+		-p 9090:9090 \
+		--name prometheus \
+		--restart=always \
+		--net=$(monitoring_overlay_network_name) \
+		-e SERVICE_NAME=prometheus \
+		--dns $(infra_node_ip_private) \
+		-e constraint:node_name==$(swarm_master_name) \
+		sourcestream/prometheus-sd
+
+remove-prometheus: init-vars init-swarm-master-vars
+	docker rm -f prometheus
+	docker rmi sourcestream/prometheus-sd
+
+all: create-infra create-master create-nodes install-registrator install-logging install-monitoring
+	docker-machine ls | grep $(environment)
+
+
+display-admin-urls:
+	@printf "\e[33m"
+	@printf "consul       http://$$(docker-machine ip $(infra_node_name)):8500/ \n"
+	@printf "kibana       http://$$(docker-machine ip $(infra_node_name)):5601/ \n"
+	@printf "prometheus   http://$$(docker-machine ip $(swarm_master_name)):9090/"
+	@printf " \e[0m\n"
+
+destroy-all: init-nodes-vars
+	docker-machine rm $(smarm_nodes) $(infra_node_name) $(swarm_master_name)
+
+
+
+
+
 
 install-lb:	init-vars
 	docker run -d \
@@ -162,43 +209,3 @@ install-web: init-vars
 		--dns $(infra_node_ip_private) \
 		--net=web \
 		sirile/scala-boot-test
-
-install-registrator: init-vars init-nodes-vars init-swarm-master-vars
-	@for node_name in $(smarm_nodes) $(swarm_master_name); do \
-		printf "\e[33m*** \e installing registrator @ $$node_name ... \e[33m***\e[0m\n"; \
-		docker $(swarm_master_config) run -d \
-			-v /var/run/docker.sock:/tmp/docker.sock \
-			--restart=always \
-			--name registrator-$$node_name \
-			--net=host \
-			-e constraint:node_name==$$node_name \
-			sourcestream/registrator -internal consul://$(infra_node_ip_private):8500; \
-	done
-
-copy-prometheus-conf: init-vars
-	docker-machine scp prometheus.yml $(swarm_master_name):/tmp/prometheus.yml
-
-install-prometheus: init-vars init-swarm-master-vars copy-prometheus-conf
-	@printf "\e[33m*** \e installing prometheus @ $(swarm_master_name) ... \e[33m***\e[0m\n"; \
-	docker $(swarm_master_config) run -d \
-		-p 9090:9090 \
-		--name prometheus \
-		--restart=always \
-		--net=monitoring \
-		-e constraint:node_name==$(swarm_master_name) \
-		-v /tmp/prometheus.yml:/etc/prometheus/prometheus.yml \
-		prom/prometheus
-
-all: create-infra create-master create-nodes install-registrator install-logging install-monitoring
-	docker-machine ls | grep $(environment)
-
-
-display-admin-urls:
-	@printf "\e[33m"
-	@printf "consul       http://$$(docker-machine ip $(infra_node_name)):8500/ \n"
-	@printf "kibana       http://$$(docker-machine ip $(infra_node_name)):5601/ \n"
-	@printf "prometheus   http://$$(docker-machine ip $(swarm_master_name)):9090/"
-	@printf " \e[0m\n"
-
-destroy-all: init-nodes-vars
-	docker-machine rm $(smarm_nodes) $(infra_node_name) $(swarm_master_name)
