@@ -107,7 +107,7 @@ install-logging: init-nodes-vars init-swarm-master-vars create-overlay-network-l
 		sirile/minilogbox
 	@printf "\e[33m*** \e installing kibana @ $(infra_node_name)... \e[33m***\e[0m\n"
 	docker $(infra_docker_config) run -d \
-		-p 5601:5601 \
+		-p $(infra_node_ip_private):5601:5601 \
 		-h kibanabox \
 		--name kibanabox \
 		--restart=always \
@@ -160,7 +160,7 @@ install-registrator: init-vars init-nodes-vars init-swarm-master-vars
 install-prometheus: init-vars init-swarm-master-vars
 	@printf "\e[33m*** \e installing prometheus @ $(swarm_master_name) ... \e[33m***\e[0m\n"; \
 	docker $(swarm_master_config) run -d \
-		-p 9090:9090 \
+		-p $(smarm_master_ip_private):9090:9090 \
 		--name prometheus \
 		--restart=always \
 		--net=$(monitoring_overlay_network_name) \
