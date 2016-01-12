@@ -1,4 +1,4 @@
-# Docker swarm on digitalocean
+# Docker swarm on Digital Ocean
 
 
 ## Architecture overview
@@ -28,6 +28,7 @@ infra             swarm-master       swarm-node-1        swarm-node-2
 ## Requierements
 * docker-machine https://docs.docker.com/machine/
 * GNU make
+* a Digital Ocean account 
 
 
 ## Used components
