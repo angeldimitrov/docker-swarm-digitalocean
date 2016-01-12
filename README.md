@@ -11,5 +11,6 @@ The following components are included
 
 ## Usage
 ```bash
+export digitalocean_token=[YOUR DIGITAL OCIAN TOKEN]
 make all
 ```

@@ -1,4 +1,3 @@
-digitalocean_token=77caa5ecb254ddcd1f0c203f9a9869073827648a402361e6776d1d10195bc069
 digitalocean_image=debian-8-x64
 
 driver_ops = --driver=digitalocean \
@@ -8,7 +7,7 @@ driver_ops = --driver=digitalocean \
 		--digitalocean-size=1gb \
 		--digitalocean-private-networking=true
 
-environment=prod
+environment=dev
 infra_node_name=$(environment)-infra
 swarm_master_name=$(environment)-swarm-master
 swarm_node_name=$(environment)-swarm-node
@@ -24,6 +23,8 @@ init-vars:
 
 init-swarm-master-vars:
 	$(eval swarm_master_config := $(shell docker-machine config --swarm $(swarm_master_name)))
+	$(eval smarm_master_ip_private := $(shell docker-machine ssh $(swarm_master_name) ip addr list eth1 |grep "inet " |cut -d' ' -f6|cut -d/ -f1))
+	@echo smarm_master_ip_private: $(smarm_master_ip_private)
 
 init-nodes-vars:
 	$(eval smarm_nodes := $(shell docker-machine ls -q | grep $(swarm_node_name)))
@@ -70,7 +71,7 @@ create-master: init-vars install-consul
 destroy-master:
 	docker-machine rm $(swarm_master_name)
 
-create-nodes: init-vars
+create-nodes: init-vars install-consul
 	@for number in 1 2 ; do \
 		printf "\e[33m*** \e create smarm node $(swarm_node_name)-$$number... \e[33m***\e[0m\n"; \
 		docker-machine create \
@@ -127,7 +128,7 @@ create-overlay-network-monitoring: init-swarm-master-vars
 	@printf "\e[33m*** \e create  $(monitoring_overlay_network_name) overlay network \e[33m***\e[0m\n"
 	docker $(swarm_master_config) network create -d overlay $(monitoring_overlay_network_name)
 
-install-monitoring: init-nodes-vars init-swarm-master-vars create-overlay-network-monitoring install-prometheus
+install-monitoring: init-nodes-vars init-swarm-master-vars create-overlay-network-monitoring install-prometheus install-grafana
 	@for node_name in $(smarm_nodes) $(swarm_master_name); do \
 		printf "\e[33m*** \e  installing cadvisor @ $$node_name ... \e[33m***\e[0m\n"; \
 		docker $(swarm_master_config) run -d \
@@ -175,7 +176,6 @@ remove-prometheus: init-vars init-swarm-master-vars
 all: create-infra create-master create-nodes install-registrator install-logging install-monitoring
 	docker-machine ls | grep $(environment)
 
-
 display-admin-urls:
 	@printf "\e[33m"
 	@printf "consul       http://$$(docker-machine ip $(infra_node_name)):8500/ \n"
@@ -186,10 +186,6 @@ display-admin-urls:
 destroy-all: init-nodes-vars
 	docker-machine rm $(smarm_nodes) $(infra_node_name) $(swarm_master_name)
 
-
-
-
-
 install-grafana: init-swarm-master-vars
 	docker $(swarm_master_config) run -d \
 		-p $(smarm_master_ip_private):3000:3000 \
@@ -198,22 +194,3 @@ install-grafana: init-swarm-master-vars
 		-e SERVICE_NAME=grafana \
 		-e constraint:node_name==$(swarm_master_name) \
 		grafana/grafana
-
-install-lb:	init-vars
-	docker run -d \
-		-h rest \
-		--name=rest \
-		-e SERVICE_NAME=rest \
-		--dns $(infra_node_ip_private) \
-		-p 80:80 \
-		-p 1936:1936 \
-		--net=web \
-		sirile/haproxy -consul=$(infra_node_ip_private):8500
-
-install-web: init-vars
-	docker run -d \
-		-e SERVICE_NAME=hello/v1 \
-		-e SERVICE_TAGS=rest \
-		--dns $(infra_node_ip_private) \
-		--net=web \
-		sirile/scala-boot-test
