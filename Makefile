@@ -14,7 +14,6 @@ swarm_node_name=$(environment)-swarm-node
 monitoring_overlay_network_name=service-monitoring
 logging_overlay_network_name=service-logging
 
-
 init-vars:
 	$(eval infra_node_ip_private := $(shell docker-machine ssh $(infra_node_name) ip addr list eth1 |grep "inet " |cut -d' ' -f6|cut -d/ -f1))
 	@echo infra_node_ip_private: $(infra_node_ip_private)
@@ -178,9 +177,10 @@ all: create-infra create-master create-nodes install-registrator install-logging
 
 display-admin-urls:
 	@printf "\e[33m"
-	@printf "consul       http://$$(docker-machine ip $(infra_node_name)):8500/ \n"
-	@printf "kibana       http://$$(docker-machine ip $(infra_node_name)):5601/ \n"
-	@printf "prometheus   http://$$(docker-machine ip $(swarm_master_name)):9090/"
+	@printf "consul      http://$infra_node_ip_private:8500/ \n"
+	@printf "kibana      http://$infra_node_ip_private:5601/ \n"
+	@printf "prometheus  http://$smarm_master_ip_private:9090/"
+	@printf "grafana     http://$smarm_master_ip_private:3000/"
 	@printf " \e[0m\n"
 
 destroy-all: init-nodes-vars
