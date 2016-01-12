@@ -15,10 +15,10 @@ monitoring_overlay_network_name=service-monitoring
 logging_overlay_network_name=service-logging
 
 init-vars:
-	$(eval infra_node_ip_private := $(shell docker-machine ssh $(infra_node_name) ip addr list eth1 |grep "inet " |cut -d' ' -f6|cut -d/ -f1))
-	@echo infra_node_ip_private: $(infra_node_ip_private)
-	$(eval infra_docker_config := $(shell docker-machine config $(infra_node_name)))
-	@echo infra_docker_config: $(infra_docker_config)
+	@$(eval infra_node_ip_private := $(shell docker-machine ssh $(infra_node_name) ip addr list eth1 |grep "inet " |cut -d' ' -f6|cut -d/ -f1))
+	@# echo infra_node_ip_private: $(infra_node_ip_private)
+	@$(eval infra_docker_config := $(shell docker-machine config $(infra_node_name)))
+	@# echo infra_docker_config: $(infra_docker_config)
 
 init-swarm-master-vars:
 	$(eval swarm_master_config := $(shell docker-machine config --swarm $(swarm_master_name)))
@@ -40,6 +40,7 @@ destroy-infra:
 install-consul: init-vars
 	@printf "\e[33m*** \e install service discovery - consul on $(infra_node_name)... \e[33m***\e[0m\n"
 	docker $(infra_docker_config) run -d \
+		-p 127.0.0.1:8500:8500 \
 		-p $(infra_node_ip_private):8500:8500 \
 		-p $(infra_node_ip_private):53:53 \
 		-p $(infra_node_ip_private):53:53/udp \
@@ -107,6 +108,7 @@ install-logging: init-nodes-vars init-swarm-master-vars create-overlay-network-l
 	@printf "\e[33m*** \e installing kibana @ $(infra_node_name)... \e[33m***\e[0m\n"
 	docker $(infra_docker_config) run -d \
 		-p $(infra_node_ip_private):5601:5601 \
+		-p 127.0.0.1:5601:5601 \
 		-h kibanabox \
 		--name kibanabox \
 		--restart=always \
@@ -160,6 +162,7 @@ install-prometheus: init-vars init-swarm-master-vars
 	@printf "\e[33m*** \e installing prometheus @ $(swarm_master_name) ... \e[33m***\e[0m\n"; \
 	docker $(swarm_master_config) run -d \
 		-p $(smarm_master_ip_private):9090:9090 \
+		-p 127.0.0.1:9090:9090 \
 		--name prometheus \
 		--restart=always \
 		--net=$(monitoring_overlay_network_name) \
@@ -172,15 +175,16 @@ remove-prometheus: init-vars init-swarm-master-vars
 	docker rm -f prometheus
 	docker rmi sourcestream/prometheus-sd
 
-all: create-infra create-master create-nodes install-registrator install-logging install-monitoring
-	docker-machine ls | grep $(environment)
+all: create-infra create-master create-nodes install-registrator install-logging install-monitoring display-admin-urls
 
-display-admin-urls:
+display-admin-urls: init-vars init-swarm-master-vars
 	@printf "\e[33m"
-	@printf "consul      http://$infra_node_ip_private:8500/ \n"
-	@printf "kibana      http://$infra_node_ip_private:5601/ \n"
-	@printf "prometheus  http://$smarm_master_ip_private:9090/"
-	@printf "grafana     http://$smarm_master_ip_private:3000/"
+	@printf "consul      http://$(infra_node_ip_private):8500/ \n"
+	@printf "kibana      http://$(infra_node_ip_private):5601/ \n"
+	@printf "prometheus  http://$(smarm_master_ip_private):9090/ \n"
+	@printf "grafana     http://$(smarm_master_ip_private):3000/ \n"
+	@printf "to map those ports to your localhost run \n"
+	@printf "make ssh-tunnels"
 	@printf " \e[0m\n"
 
 destroy-all: init-nodes-vars
@@ -189,8 +193,23 @@ destroy-all: init-nodes-vars
 install-grafana: init-swarm-master-vars
 	docker $(swarm_master_config) run -d \
 		-p $(smarm_master_ip_private):3000:3000 \
+		-p 127.0.0.1:3000:3000 \
 		--net=$(monitoring_overlay_network_name) \
 		--name grafana \
 		-e SERVICE_NAME=grafana \
 		-e constraint:node_name==$(swarm_master_name) \
 		grafana/grafana
+
+ssh-tunnels: init-vars init-swarm-master-vars
+	@# consul
+	docker-machine ssh $(infra_node_name) -N -L 8500:localhost:8500 &
+	@printf "\x1B[35mconsul      http://localhost:8500/ \e[0m\n"
+	@# kibana
+	docker-machine ssh $(infra_node_name) -N -L 5601:localhost:5601 &
+	@printf "\x1B[35mkibana      http://localhost:5601/ \e[0m\n"
+	@# prometheus
+	docker-machine ssh $(swarm_master_name) -N -L 9090:localhost:9090 &
+	@printf "\x1B[35mprometheus  http://localhost:9090/ \e[0m\n"
+	@# grafana
+	docker-machine ssh $(swarm_master_name) -N -L 3000:localhost:3000 &
+	@printf "\x1B[35mgrafana     http://localhost:3000/ \e[0m\n"
