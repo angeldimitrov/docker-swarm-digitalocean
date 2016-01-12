@@ -8,6 +8,8 @@ The following components are included
 * logspout (progrium/logspout)
 * kibanabox (sirile/kibanabox)
 * sirile (sirile/minilogbox)
+* prometheus (sourcestream/prometheus-sd) modified version of prometheus to use service discovery with DNS thru consul
+* grafana (grafana/grafana)
 
 ## Usage
 ```bash
