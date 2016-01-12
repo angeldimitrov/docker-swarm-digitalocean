@@ -4,24 +4,17 @@
 ## Architecture overview
 ```bash
 infra             swarm-master       swarm-node-1        swarm-node-2
-
 +--------------+  +---------------+  +----------------+  +----------------+
-|              |  |               |  |                |  |                |
-| consul       |  | registrator   |  | registartor    |  | registartor    |
-+------------------------------------------------------------------------------- service discovery
-|              |  |               |  |                |  |                |
-|              |  |               |  |                |  |                |
-| kibanabox    |  | logspout      |  | logspout       |  | logspout       |
-|              |  |               |  |                |  |                |
+| consul       |  | registrator   |  | registartor    |  | registartor    |   service discovery
++-------------------------------------------------------------------------------------------------
 | minilogbox   |  |               |  |                |  |                |
-+------------------------------------------------------------------------------- logs aggregation
-|              |  |               |  |                |  |                |
-|              |  | cadvisor      |  | cadvisor       |  | cadvisor       |
-|              |  | prometheus    |  |                |  |                |
+| kibanabox    |  | logspout      |  | logspout       |  | logspout       |   logs aggregation
++------------------------------------------------------------------------------------------------- 
 |              |  | grafana       |  |                |  |                |
-+------------------------------------------------------------------------------- monitoring
-|              |  |               |  |                |  |                |
-+--------------+  +---------------+  +----------------+  +----------------+
+|              |  | prometheus    |  |                |  |                |
+|              |  | cadvisor      |  | cadvisor       |  | cadvisor       |   monitoring
++------------------------------------------------------------------------------------------------- 
+
 
 ```
 
