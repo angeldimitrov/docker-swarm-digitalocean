@@ -40,7 +40,7 @@ destroy-infra:
 install-consul: init-vars
 	@printf "\e[33m*** \e install service discovery - consul on $(infra_node_name)... \e[33m***\e[0m\n"
 	docker $(infra_docker_config) run -d \
-		-p 8500:8500 \
+		-p $(infra_node_ip_private):8500:8500 \
 		-p $(infra_node_ip_private):53:53 \
 		-p $(infra_node_ip_private):53:53/udp \
 		-p $(infra_node_ip_private):8301:8301 \
