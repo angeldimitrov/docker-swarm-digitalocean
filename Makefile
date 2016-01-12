@@ -190,6 +190,14 @@ destroy-all: init-nodes-vars
 
 
 
+install-grafana: init-swarm-master-vars
+	docker $(swarm_master_config) run -d \
+		-p $(smarm_master_ip_private):3000:3000 \
+		--net=$(monitoring_overlay_network_name) \
+		--name grafana \
+		-e SERVICE_NAME=grafana \
+		-e constraint:node_name==$(swarm_master_name) \
+		grafana/grafana
 
 install-lb:	init-vars
 	docker run -d \
